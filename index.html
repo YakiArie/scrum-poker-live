@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Scrum Poker Live</title>
+        <!-- Load Tailwind CSS -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            "primary-blue": "#1052FF",
+                            "secondary-gray": "#E5E7EB",
+                        },
+                        fontFamily: {
+                            sans: ["Inter", "sans-serif"],
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
+            .card-shadow {
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+            }
+            .card:hover {
+                transform: translateY(-4px) scale(1.02);
+            }
+            .card-selected {
+                border-color: #1052ff;
+                box-shadow: 0 0 0 4px rgba(16, 82, 255, 0.5);
+                background-color: #1052ff;
+                color: white;
+            }
+        </style>
+    </head>
+    <body class="bg-gray-50 min-h-screen flex flex-col font-sans">
+        <!-- Header -->
+        <header class="bg-white shadow-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-primary-blue flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M19.03 2.5a.5.5 0 0 0-.5.5v18a.5.5 0 0 0 .5.5H20a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5h-1zm-4.78 1.96a.5.5 0 0 0-.5.5v15a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V5a.5.5 0 0 0-.5-.5h-1zm-4.78 1.96a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V7a.5.5 0 0 0-.5-.5h-1zm-4.78 1.96a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V9a.5.5 0 0 0-.5-.5h-1z"
+                        />
+                    </svg>
+                    Scrum Poker Live
+                </h1>
+                <div class="text-sm text-gray-600">Logged in as: <span id="user-display-id" class="font-mono bg-gray-100 px-2 py-1 rounded">Loading...</span></div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="app-container" class="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+            <!-- Content will be dynamically swapped between Lobby and Game -->
+            <div id="lobby-view">
+                <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg mx-auto">
+                    <h2 class="text-3xl font-extrabold text-gray-900 mb-6 text-center">Start a New Game</h2>
+                    <input id="user-name-input" type="text" placeholder="Enter your name" class="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4 focus:ring-primary-blue focus:border-primary-blue transition duration-150" required />
+
+                    <button id="create-game-btn" class="w-full bg-primary-blue text-white font-semibold py-3 rounded-lg shadow-md hover:bg-blue-600 transition duration-150 ease-in-out">Create New Game</button>
+
+                    <div class="my-6 flex items-center">
+                        <div class="flex-grow border-t border-gray-300"></div>
+                        <span class="flex-shrink mx-4 text-gray-500">OR</span>
+                        <div class="flex-grow border-t border-gray-300"></div>
+                    </div>
+
+                    <h2 class="text-3xl font-extrabold text-gray-900 mb-4 text-center">Join Existing Game</h2>
+                    <input id="join-game-id-input" type="text" placeholder="Enter Game ID" class="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4 focus:ring-primary-blue focus:border-primary-blue transition duration-150" required />
+                    <button id="join-game-btn" class="w-full bg-gray-700 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-gray-800 transition duration-150 ease-in-out">Join Game</button>
+                </div>
+            </div>
+
+            <div id="game-view" class="hidden">
+                <!-- Game Content -->
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <!-- Left Side: Issues & Game Info (Hidden on Mobile initially) -->
+                    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg border-l-4 border-primary-blue">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4 flex justify-between items-center">Game ID: <span id="current-game-id" class="font-mono text-sm bg-gray-100 p-1 rounded-md text-primary-blue"></span></h3>
+
+                        <p class="text-sm text-gray-600 mb-4">Share this ID or the full URL with your team to join!</p>
+
+                        <h4 class="font-semibold text-lg border-b pb-2 mb-4">Issues/Stories</h4>
+                        <div id="issue-list" class="space-y-2">
+                            <p class="text-sm text-gray-500">No issues added yet.</p>
+                        </div>
+                    </div>
+
+                    <!-- Main Area: Player Votes and Controls -->
+                    <div class="lg:col-span-3">
+                        <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-4">
+                                <span id="game-status-text" class="text-green-600">VOTING ROUND</span>
+                            </h3>
+                            <p id="creator-controls" class="text-sm text-gray-600 mb-4 hidden">
+                                <span class="font-bold text-primary-blue">Creator Controls:</span>
+                                <button id="reveal-votes-btn" class="ml-2 px-3 py-1 bg-yellow-500 text-white text-sm rounded-lg hover:bg-yellow-600 transition disabled:opacity-50" disabled>Reveal Votes</button>
+                                <button id="new-round-btn" class="ml-2 px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition disabled:opacity-50" disabled>New Round</button>
+                            </p>
+
+                            <!-- Player Votes Grid -->
+                            <div id="player-grid" class="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                <!-- Player cards will be injected here -->
+                            </div>
+
+                            <!-- Voting Results Summary (Hidden initially) -->
+                            <div id="results-summary" class="hidden mt-6 pt-4 border-t border-gray-200">
+                                <h4 class="text-xl font-bold text-primary-blue mb-3">Voting Results</h4>
+                                <div id="vote-distribution" class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                                    <!-- Distribution stats will go here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Selection Area -->
+                        <div class="bg-white p-6 rounded-xl shadow-lg">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">Select Your Estimate</h3>
+                            <div id="card-selection-grid" class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-3">
+                                <!-- Cards will be injected here -->
+                            </div>
+                            <div class="mt-4 flex items-center">
+                                <p class="text-lg font-semibold text-gray-700">Your Current Vote:</p>
+                                <span id="current-vote-display" class="ml-3 px-3 py-1 text-lg font-bold rounded-lg bg-secondary-gray text-gray-800">None</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-gray-800 text-white mt-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-sm">&copy; 2024 Scrum Poker Live Clone. Built with Firebase and Tailwind CSS.</div>
+        </footer>
+
+        <!-- Firebase Initialization and Game Logic -->
+        <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+            import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+            import { getFirestore, doc, setDoc, onSnapshot, collection, query, runTransaction, getDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+            // Global variables provided by the environment
+            const appId = typeof __app_id !== "undefined" ? __app_id : "default-app-id";
+            const firebaseConfig = typeof __firebase_config !== "undefined" ? JSON.parse(__firebase_config) : {};
+            const initialAuthToken = typeof __initial_auth_token !== "undefined" ? __initial_auth_token : null;
+
+            // Initialize Firebase
+            let app;
+            let db;
+            let auth;
+            let userId = null;
+            let userName = null;
+            let isAuthReady = false;
+            let gameId = null;
+            let isCreator = false;
+            let selectedVote = null;
+
+            // Planning Poker Cards
+            const CARDS = ["0", "1/2", "1", "2", "3", "5", "8", "13", "20", "40", "100", "?", "∞"];
+
+            // DOM Elements
+            const lobbyView = document.getElementById("lobby-view");
+            const gameView = document.getElementById("game-view");
+            const userDisplayId = document.getElementById("user-display-id");
+            const userNameInput = document.getElementById("user-name-input");
+            const createGameBtn = document.getElementById("create-game-btn");
+            const joinGameIdInput = document.getElementById("join-game-id-input");
+            const joinGameBtn = document.getElementById("join-game-btn");
+            const currentGameIdDisplay = document.getElementById("current-game-id");
+            const playerGrid = document.getElementById("player-grid");
+            const cardSelectionGrid = document.getElementById("card-selection-grid");
+            const revealVotesBtn = document.getElementById("reveal-votes-btn");
+            const newRoundBtn = document.getElementById("new-round-btn");
+            const creatorControls = document.getElementById("creator-controls");
+            const gameStatusText = document.getElementById("game-status-text");
+            const currentVoteDisplay = document.getElementById("current-vote-display");
+            const resultsSummary = document.getElementById("results-summary");
+            const voteDistribution = document.getElementById("vote-distribution");
+
+            // --- Utility Functions ---
+
+            // Simple utility for generating UUIDs if needed for anonymous users
+            function generateUUID() {
+                return "xxxx-xxxx-4xxx-yxxx".replace(/[xy]/g, function (c) {
+                    const r = (Math.random() * 16) | 0,
+                        v = c === "x" ? r : (r & 0x3) | 0x8;
+                    return v.toString(16);
+                });
+            }
+
+            function getGameRef(id) {
+                // Public collection path: /artifacts/{appId}/public/data/poker_games/{gameId}
+                return doc(db, "artifacts", appId, "public", "data", "poker_games", id);
+            }
+
+            function showView(viewId) {
+                lobbyView.classList.add("hidden");
+                gameView.classList.add("hidden");
+                if (viewId === "lobby") {
+                    lobbyView.classList.remove("hidden");
+                } else if (viewId === "game") {
+                    gameView.classList.remove("hidden");
+                }
+            }
+
+            // --- Authentication and Setup ---
+
+            async function initFirebase() {
+                try {
+                    if (Object.keys(firebaseConfig).length > 0) {
+                        setLogLevel("Debug");
+                        app = initializeApp(firebaseConfig);
+                        db = getFirestore(app);
+                        auth = getAuth(app);
+
+                        // Sign-in
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+
+                        // Listen for auth state change
+                        onAuthStateChanged(auth, (user) => {
+                            if (user) {
+                                userId = user.uid;
+                                userDisplayId.textContent = userId;
+                            } else {
+                                // Should not happen with anonymous or custom token sign-in
+                                userId = generateUUID();
+                                userDisplayId.textContent = userId;
+                            }
+                            isAuthReady = true;
+                            checkUrlForGame();
+                        });
+
+                        // Set up event listeners for lobby buttons
+                        createGameBtn.addEventListener("click", () => handleCreateGame());
+                        joinGameBtn.addEventListener("click", () => handleJoinGame(joinGameIdInput.value.trim()));
+                        revealVotesBtn.addEventListener("click", () => handleControlAction("reveal"));
+                        newRoundBtn.addEventListener("click", () => handleControlAction("reset"));
+                    } else {
+                        console.error("Firebase config not available. Cannot initialize Firestore.");
+                        isAuthReady = true; // Still allow app to try to run without persistence
+                    }
+                } catch (error) {
+                    console.error("Error during Firebase initialization or sign-in:", error);
+                    isAuthReady = true;
+                }
+            }
+
+            // --- Game Creation & Joining ---
+
+            function getPublicGameUrl(id) {
+                const url = new URL(window.location.href);
+                url.searchParams.set("gameId", id);
+                return url.toString();
+            }
+
+            function checkUrlForGame() {
+                if (!isAuthReady) return; // Wait for auth
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get("gameId");
+
+                if (id) {
+                    // If a gameId is in the URL, try to pre-fill and join
+                    joinGameIdInput.value = id;
+                    // We don't auto-join, we wait for the user to enter their name and click join/create
+                }
+                showView("lobby");
+                renderCardSelection();
+            }
+
+            async function handleCreateGame() {
+                userName = userNameInput.value.trim();
+                if (!userName) return alertModal("Please enter your name to start or join a game.");
+
+                // Generate a simple, shareable game ID (e.g., 6 random digits)
+                gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+                isCreator = true;
+
+                const initialGameData = {
+                    gameId: gameId,
+                    issues: [{ id: generateUUID(), name: "First Story Estimate", is_active: true, estimate: null }],
+                    players: {}, // Will be updated in joinOrUpdateGame
+                    roundStatus: "voting",
+                    activeIssueId: null, // Set during the join process
+                    timestamp: Date.now(),
+                };
+
+                try {
+                    // Create game document
+                    await setDoc(getGameRef(gameId), initialGameData);
+
+                    // NOTE: Removed window.history.pushState to fix SecurityError in sandboxed environment.
+
+                    // Join the game
+                    await joinOrUpdateGame();
+                } catch (e) {
+                    console.error("Error creating document: ", e);
+                    alertModal("Failed to create game. Check console for details.");
+                }
+            }
+
+            async function handleJoinGame(id) {
+                userName = userNameInput.value.trim();
+                gameId = id;
+
+                if (!userName || !gameId) return alertModal("Please enter your name and a Game ID.");
+
+                // Check if game exists before proceeding
+                try {
+                    const docSnap = await getDoc(getGameRef(gameId));
+                    if (docSnap.exists()) {
+                        isCreator = false;
+                        await joinOrUpdateGame();
+                        // NOTE: Removed window.history.pushState to fix SecurityError in sandboxed environment.
+                    } else {
+                        alertModal("Game ID not found. Please check the ID or create a new game.");
+                        gameId = null;
+                    }
+                } catch (e) {
+                    console.error("Error joining game: ", e);
+                    alertModal("Failed to join game. Check console for details.");
+                }
+            }
+
+            async function joinOrUpdateGame() {
+                currentGameIdDisplay.textContent = gameId;
+                showView("game");
+
+                const gameRef = getGameRef(gameId);
+
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const gameDoc = await transaction.get(gameRef);
+                        if (gameDoc.exists()) {
+                            const data = gameDoc.data();
+                            const players = data.players || {};
+
+                            // Add/update current player in the players map
+                            players[userId] = {
+                                name: userName,
+                                hasVoted: false,
+                                vote: null,
+                                isCreator: isCreator,
+                                joinTimestamp: Date.now(),
+                            };
+
+                            // Set the first issue as active if it's a new game being created
+                            let activeIssueId = data.activeIssueId;
+                            if (!activeIssueId && data.issues && data.issues.length > 0) {
+                                activeIssueId = data.issues[0].id;
+                            }
+
+                            transaction.update(gameRef, {
+                                players: players,
+                                activeIssueId: activeIssueId,
+                            });
+                        } else {
+                            // This case should be handled by the pre-check in handleJoinGame
+                            throw new Error("Game document does not exist.");
+                        }
+                    });
+
+                    // Start listening for real-time updates after successfully joining
+                    startRealtimeListener();
+                } catch (e) {
+                    console.error("Transaction failed: ", e);
+                    alertModal("Failed to update player status in the game.");
+                }
+            }
+
+            // --- Real-time Data Listener ---
+
+            function startRealtimeListener() {
+                if (!db || !gameId) return;
+
+                const gameRef = getGameRef(gameId);
+
+                onSnapshot(
+                    gameRef,
+                    (doc) => {
+                        if (doc.exists()) {
+                            const gameData = doc.data();
+                            updateGameUI(gameData);
+                        } else {
+                            console.log("Game document was deleted, returning to lobby.");
+                            alertModal("The current game has been closed.");
+                            // NOTE: Removed window.history.pushState to fix SecurityError in sandboxed environment.
+                            gameId = null;
+                            isCreator = false;
+                            showView("lobby");
+                        }
+                    },
+                    (error) => {
+                        console.error("Error listening to game changes: ", error);
+                    }
+                );
+            }
+
+            // --- UI Rendering ---
+
+            function updateGameUI(gameData) {
+                const players = gameData.players || {};
+                const roundStatus = gameData.roundStatus || "voting";
+
+                // 1. Update Game Status Text and Controls
+                gameStatusText.textContent = roundStatus === "voting" ? "VOTING ROUND" : "VOTES REVEALED";
+                gameStatusText.classList.remove("text-green-600", "text-red-600");
+                gameStatusText.classList.add(roundStatus === "voting" ? "text-green-600" : "text-red-600");
+
+                if (isCreator) {
+                    creatorControls.classList.remove("hidden");
+                    // Enable/disable buttons based on round status
+                    revealVotesBtn.disabled = roundStatus !== "voting";
+                    newRoundBtn.disabled = roundStatus !== "revealed";
+                } else {
+                    creatorControls.classList.add("hidden");
+                }
+
+                // 2. Update Player Grid
+                playerGrid.innerHTML = "";
+                let allVoted = true;
+
+                const sortedPlayers = Object.values(players).sort((a, b) => a.joinTimestamp - b.joinTimestamp);
+
+                sortedPlayers.forEach((player) => {
+                    // Ensure current player is not double-counted for vote check
+                    if (player.name && player.name !== userName) {
+                        if (roundStatus === "voting" && !player.hasVoted) allVoted = false;
+                    }
+
+                    const playerElement = document.createElement("div");
+                    playerElement.className = "bg-white p-4 rounded-xl shadow-md border-b-4 " + (player.isCreator ? "border-primary-blue" : "border-gray-300");
+
+                    // Determine the card display
+                    let cardContent = " ";
+                    let cardClass = "bg-gray-200";
+                    if (roundStatus === "revealed" && player.vote) {
+                        cardContent = player.vote;
+                        cardClass = "bg-primary-blue text-white";
+                    } else if (player.hasVoted) {
+                        cardContent = roundStatus === "voting" ? "★" : " "; // Show star during voting
+                        cardClass = "bg-green-500 text-white";
+                    }
+
+                    playerElement.innerHTML = `
+                    <div class="text-xs font-semibold text-gray-500 mb-1 flex items-center">
+                        ${player.isCreator ? '<span class="text-xs font-bold text-primary-blue mr-1">CREATOR</span>' : ""}
+                        ${player.name}
+                    </div>
+                    <div class="w-full h-16 flex items-center justify-center font-extrabold text-3xl rounded-lg ${cardClass} card-shadow transition duration-150 ease-in-out">
+                        ${cardContent}
+                    </div>
+                `;
+                    playerGrid.appendChild(playerElement);
+                });
+
+                // 3. Update 'Reveal Votes' button state
+                if (isCreator && roundStatus === "voting") {
+                    // Enable if everyone voted, or if it's just the creator (only 1 player)
+                    revealVotesBtn.disabled = !allVoted && Object.keys(players).length > 1;
+                }
+
+                // 4. Update Card Selection UI (local state)
+                updateCardSelectionUI();
+
+                // 5. Update Results Summary
+                if (roundStatus === "revealed") {
+                    resultsSummary.classList.remove("hidden");
+                    renderResultsSummary(players);
+                } else {
+                    resultsSummary.classList.add("hidden");
+                }
+            }
+
+            function renderResultsSummary(players) {
+                voteDistribution.innerHTML = "";
+                const votes = Object.values(players)
+                    .map((p) => p.vote)
+                    .filter((v) => v !== null && v !== "∞" && v !== "?");
+
+                const voteCounts = votes.reduce((acc, vote) => {
+                    acc[vote] = (acc[vote] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const totalCount = votes.length;
+                const uniqueVotes = Object.keys(voteCounts).sort((a, b) => {
+                    // Sort numbers correctly
+                    const aNum = parseFloat(a);
+                    const bNum = parseFloat(b);
+                    if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+                    return a.localeCompare(b);
+                });
+
+                uniqueVotes.forEach((vote) => {
+                    const count = voteCounts[vote];
+                    const percent = totalCount > 0 ? ((count / totalCount) * 100).toFixed(0) : 0;
+
+                    const statItem = document.createElement("div");
+                    statItem.className = "flex flex-col items-center p-2 rounded-lg bg-gray-100 min-w-[60px]";
+                    statItem.innerHTML = `
+                    <span class="text-xl font-bold text-primary-blue">${vote}</span>
+                    <span class="text-xs text-gray-600">${count} votes (${percent}%)</span>
+                `;
+                    voteDistribution.appendChild(statItem);
+                });
+
+                if (totalCount === 0) {
+                    voteDistribution.innerHTML = '<p class="text-gray-500 italic">No numeric estimates cast in this round.</p>';
+                }
+            }
+
+            // --- Card Selection and Local Voting ---
+
+            function renderCardSelection() {
+                cardSelectionGrid.innerHTML = "";
+                CARDS.forEach((cardValue) => {
+                    const button = document.createElement("button");
+                    button.textContent = cardValue;
+                    button.className = `card w-full h-20 sm:h-24 flex items-center justify-center font-extrabold text-xl sm:text-3xl rounded-lg border-2 border-gray-300 bg-white text-gray-700 cursor-pointer transition duration-150 ease-in-out hover:bg-gray-100 hover:border-primary-blue card-shadow`;
+                    button.setAttribute("data-value", cardValue);
+                    button.addEventListener("click", () => selectCard(cardValue));
+                    cardSelectionGrid.appendChild(button);
+                });
+                updateCardSelectionUI();
+            }
+
+            function updateCardSelectionUI() {
+                document.querySelectorAll(".card").forEach((card) => {
+                    const value = card.getAttribute("data-value");
+                    card.classList.remove("card-selected");
+                    if (value === selectedVote) {
+                        card.classList.add("card-selected");
+                    }
+                });
+                currentVoteDisplay.textContent = selectedVote || "None";
+
+                // Fix for InvalidCharacterError: use individual class names instead of a single string
+                currentVoteDisplay.classList.remove("bg-secondary-gray", "bg-primary-blue", "text-white", "text-gray-800");
+                if (selectedVote) {
+                    currentVoteDisplay.classList.add("bg-primary-blue", "text-white");
+                } else {
+                    currentVoteDisplay.classList.add("bg-secondary-gray", "text-gray-800");
+                }
+            }
+
+            async function selectCard(value) {
+                selectedVote = value;
+                updateCardSelectionUI();
+
+                const gameRef = getGameRef(gameId);
+
+                try {
+                    // Perform the vote using a transaction for atomic update
+                    await runTransaction(db, async (transaction) => {
+                        const gameDoc = await transaction.get(gameRef);
+                        if (gameDoc.exists()) {
+                            const data = gameDoc.data();
+                            const players = data.players || {};
+
+                            // Check if the round is currently in 'voting' status
+                            if (data.roundStatus === "voting") {
+                                // Update current player's vote and status
+                                if (players[userId]) {
+                                    players[userId].vote = value;
+                                    players[userId].hasVoted = true;
+                                }
+
+                                transaction.update(gameRef, {
+                                    players: players,
+                                });
+                            } else {
+                                // Cannot vote while revealed. Reset vote locally.
+                                selectedVote = null;
+                                updateCardSelectionUI();
+                                alertModal("Votes are already revealed. Wait for the creator to start a new round.");
+                            }
+                        } else {
+                            throw new Error("Game document does not exist.");
+                        }
+                    });
+                } catch (e) {
+                    console.error("Voting failed: ", e);
+                    alertModal("Failed to cast vote. Check console.");
+                }
+            }
+
+            // --- Creator Control Actions (Reveal/Reset) ---
+
+            async function handleControlAction(action) {
+                if (!isCreator || !gameId) return;
+
+                const gameRef = getGameRef(gameId);
+
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const gameDoc = await transaction.get(gameRef);
+                        if (gameDoc.exists()) {
+                            const data = gameDoc.data();
+
+                            if (action === "reveal" && data.roundStatus === "voting") {
+                                transaction.update(gameRef, {
+                                    roundStatus: "revealed",
+                                });
+                            } else if (action === "reset" && data.roundStatus === "revealed") {
+                                // Reset votes for all players and set status back to voting
+                                const players = data.players || {};
+                                Object.keys(players).forEach((pId) => {
+                                    players[pId].vote = null;
+                                    players[pId].hasVoted = false;
+                                });
+                                selectedVote = null; // Reset local vote too
+
+                                transaction.update(gameRef, {
+                                    players: players,
+                                    roundStatus: "voting",
+                                });
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.error(`Control action (${action}) failed: `, e);
+                    alertModal(`Failed to execute action: ${action}.`);
+                }
+            }
+
+            // --- Custom Alert Modal (Replaces alert()) ---
+
+            function alertModal(message) {
+                // Simple alert implementation since window.alert() is forbidden
+                console.warn("APP ALERT:", message);
+                const alertDiv = document.createElement("div");
+                alertDiv.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+                alertDiv.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-2xl max-w-sm mx-auto">
+                    <h5 class="text-xl font-bold mb-3 text-red-600">Action Required</h5>
+                    <p class="text-gray-700 mb-4">${message}</p>
+                    <button id="close-alert-btn" class="w-full bg-primary-blue text-white py-2 rounded-lg hover:bg-blue-600">Close</button>
+                </div>
+            `;
+                document.body.appendChild(alertDiv);
+                document.getElementById("close-alert-btn").onclick = () => alertDiv.remove();
+            }
+
+            // Initialize the application when the window loads
+            window.onload = initFirebase;
+        </script>
+    </body>
+</html>
